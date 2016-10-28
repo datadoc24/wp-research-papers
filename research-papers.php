@@ -66,10 +66,10 @@ function ddoc_research_papers_init() {
 		'has_archive' => true, 
 		'hierarchical' => false,
 		'menu_position' => null,
-		'supports' => array( 'title', 'thumbnail')
+		'supports' => array( 'title', 'thumbnail', 'comments')
 	  ); 
 	  
-	  register_post_type( 'research-papers', $args );
+	  register_post_type( 'ddoc-research-papers', $args );
       ddoc_research_papers_taxonomies();
 }
 
@@ -91,7 +91,7 @@ function ddoc_research_papers_taxonomies(){
         'menu_name'=>$label.'s'
         );
         
-        register_taxonomy ($name, 'research-papers', array('hierarchical'=>true, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
+        register_taxonomy ($name, 'ddoc-research-papers', array('hierarchical'=>true, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
         
     }
 }
@@ -105,7 +105,7 @@ function ddoc_research_papers_shortcode( $atts, $content = null ) {
    
     $output='<h1>Research Papers</h1>';
     
-    $taxlist = get_object_taxonomies( 'research-papers','objects');
+    $taxlist = get_object_taxonomies( 'ddoc-research-papers','objects');
     
     //drop-down for choosing ordering type
     $output.="Sort research papers by <select name='sortby'>";
@@ -120,5 +120,46 @@ function ddoc_research_papers_shortcode( $atts, $content = null ) {
     
     return $output;
 }
+
+add_action( 'add_meta_boxes', 'ddoc_research_papers_register_meta_box' );
+
+function ddoc_research_papers_register_meta_box() {
+	
+ 	add_meta_box( 'ddoc-research-papers-question-meta', __( 'Research Paper Details','ddoc-research-papers-plugin' ), 'ddoc_research_papers__meta_box', 'ddoc-research-papers', 'normal', 'default' );
+	
+}
+
+
+function ddoc_research_papers__meta_box( $post ) {
+
+    wp_nonce_field( 'meta-box-save', 'ddoc-research-papers-plugin' );
     
+    $rp_url = get_post_meta( $post->ID, '_ddoc_research_paper_url', true );
+  
+    echo '<div>' .__('Research Paper Web Link / URL', 'ddoc-research-papers-plugin').': <input type="text" name="ddoc_research_paper_url" value="'.esc_attr( $rp_url ).'" size="100"></div>';
+	
+}
+
+
+add_action( 'save_post','ddoc_research_paper_save_meta_box' );
+
+
+function ddoc_research_paper_save_meta_box( $post_id ) {
+
+	//verify the post type is for Risk Assessment Question and metadata has been posted
+	if ( get_post_type( $post_id ) == 'ddoc-research-papers' && isset( $_POST['ddoc_research_paper_url'] ) ) {
+		
+		//if autosave skip saving data
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) 
+			return;
+
+		//check nonce for security
+		check_admin_referer( 'meta-box-save', 'ddoc-research-papers-plugin' );
+
+		// save the meta box data as post metadata
+		update_post_meta( $post_id, '_ddoc_research_paper_url', sanitize_text_field( $_POST['ddoc_research_paper_url'] ) );
+		
+	}
+	
+}    
 ?>
