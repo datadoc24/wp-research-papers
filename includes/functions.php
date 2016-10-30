@@ -1,275 +1,229 @@
 <?php
+global $ddoc_rp_table_count;
+$ddoc_rp_table_count = 1;
+
+global $ddoc_rp_shortcode;
+$ddoc_rp_shortcode = 'researchpapers';
+
+global $ddoc_rp_shortcode_defaults;
+$ddoc_rp_shortcode_defaults = array(
+        'rows_per_page' => 20,
+        'sort_by' => '',
+        'sort_order' => '',
+        'category' => '',
+        'search_on_click' => false,
+        'wrap' => true,
+        'content_length' => 15,
+        'scroll_offset' => 15
+    );
 
 
-
-function ST4_get_question_category($post_ID){
-    $categoryID = get_post_meta( $post_ID, '_risk_assessment_cid', true );
-    $rsk_options_arr = get_option( 'risk_assessment_options' );
-	$categoryName = $rsk_options_arr['category_'.$categoryID.'_name'];
-	return $categoryName;
-}
-
-#comma-separated list of tag names (all taxonomies)
-function ST4_get_question_terms($post_ID){
+function ddoc_research_papers_shortcode( $atts, $content = '' ) {
+    global $ddoc_rp_shortcode_defaults;
+    global $ddoc_rp_shortcode;
     
-    $taxonomy_names = get_post_taxonomies($post_ID);
-    
-    $output='';
-    
-    foreach ($taxonomy_names as $tn){
-        $tax_label = get_taxonomy($tn)->labels->name;
-        $output.= get_the_term_list( $post_ID, $tn, $tax_label.': ', ', ','<br />' );
-    }
-    
-    return $output;
-}
-
-function ST4_columns_riskquestions_head($defaults){
-    unset($defaults['date']);
-    $defaults['ra_question_terms'] = 'Question Categories';
-    return $defaults;
-}
-
-function ST4_columns_riskquestions_content($column_name, $post_ID) {
-    if ($column_name == 'ra_question_terms') {
-        $termlist = ST4_get_question_terms($post_ID);
-        if ($termlist) {
-            echo $termlist;
-        }
-    }
-}
-
-function sortable_category_column($columns){
-    $columns['ra_question_terms'] = 'Question Categories';
-    return $columns;
+    $atts = shortcode_atts( $ddoc_rp_shortcode_defaults, $atts, $ddoc_rp_shortcode );
+    return ddoc_research_papers_display( $atts );
 }
 
 
-function riskas_add_user_results_column($columns) {
-    $columns['riskas_user_results'] = 'Assessment Completed';
-    return $columns;
-}
- 
-
-function riskas_show_user_results_column_content($value, $column_name, $user_id) {
-    global $wpdb;
-    global $ra_db_tablename;
-
-	if ( 'riskas_user_results' == $column_name )
-    {
-		$assessment_date = $wpdb->get_var("SELECT max(time) FROM ".$wpdb->prefix.$ra_db_tablename." where userid = $user_id");
-        //select latest date of risk results for this user
-        return "<a href='?page=risk-results-detail&user_id=$user_id'>".$assessment_date."</a>";
-    }
-    return $value;
-}
-
-
-
-
-
-function select_answer($qid, $ans1,$ans2,$ans3,$ans4)
-{
-    $output="<select name='selanswer$qid' id='selanswer$qid' required>
-    <option value=''>(select the most fitting answer)</option>
-    <option value='$ans1'>Strongly agree</option>
-    <option value='$ans2'>Somewhat agree</option>
-    <option value='$ans3'>Somewhat disagree</option>
-    <option value='$ans4'>Strongly disagree</option>
-    </select>
-    
-    <script type='text/javascript'>
-    
-    jQuery('#selanswer$qid').change(function(event) {
+function ddoc_research_papers_display( $args ) {
+        global $ddoc_rp_table_count;
         
-        jQuery('#answertext$qid').html(jQuery('#selanswer$qid').val());
-    }); 
-    
-    </script>
-    ";
-    return $output;
-}
-
-//todo:convert this to handle an array of possible answers
-function select_button($qid, $answers, $selected)
-{
-    for($n=count($answers);$n>0;$n--){
-        $checkedstring=null; if ($n==$selected) $checkedstring = "checked='checked'";
-        $output .= "<strong>$n</strong> <input type='radio' name='selanswer$qid' id='".$n."btn$qid' value=$n $checkedstring>&nbsp;&nbsp;&nbsp;&nbsp;";
-    }
-    
-    $output.="<script type='text/javascript'>";
-    
-    for($n=count($answers);$n>0;$n--){
-        $output.="jQuery('#".$n."btn$qid').change(function(event) {
-            jQuery('#answertext_id$qid').val('".$answers[$n-1]."');
-            });";
-    }
-    
-    $output.="</script>";
-    
-    return $output;
-}
-
-function process_risk_assessment()
-{
-    global $wpdb;
-    global $ra_db_tablename;
-    
-    $nonce = $_POST['_ranonce'];
-    
-    if ( ! wp_verify_nonce( $nonce, 'risk-assessment-nonce' ) ) {
-        // This nonce is not valid.
-        echo "<span style='color:red;'>Invalid submitter</span>";
-        die(); 
-    }
-    
-    $userid = get_current_user_id();
-    $success = TRUE;
-    $tax = sanitize_text_field($_POST['assessment_taxonomy']);
-    $extra_notes = sanitize_text_field($_POST['riskas_user_personal_notes_'.$tax.'_field']);
-    
-    //add the personal notes as a user meta field
-    update_user_meta( $userid, 'riskas_personal_notes_'.$tax, $extra_notes);
-    
-    //iterate through post array looking for things from the risk assessment form
-    foreach ($_POST as $key => $val){
-        if (strpos($key,'selanswer')!==FALSE){
-            
-            $qid = substr($key,9);
-            
-            if($wpdb->replace($wpdb->prefix . $ra_db_tablename,array(
-                'userid'=>$userid,
-                'assessment'=>sanitize_text_field($_POST['assessment_label']),
-                'questionid'=>$qid,
-                'usernotes'=>sanitize_text_field($_POST['answertext_nm'.$qid]),
-                'answercode'=>$val,
-                'time'=>date('Y-m-d H:i:s')
-            )) === FALSE) {
-                $success = FALSE;
+        
+        
+        $args['rows_per_page'] = filter_var( $args['rows_per_page'], FILTER_VALIDATE_INT );
+        if ( ($args['rows_per_page'] < 1) || !$args['rows_per_page'] ) {
+            $args['rows_per_page'] = false;
+        }
+        
+        if ( !in_array( $args['sort_by'], array('id', 'title', 'category', 'date', 'author', 'content') ) ) {
+            $args['sort_by'] = 'title';
+        }
+        
+        if ( !in_array( $args['sort_order'], array('asc', 'desc') ) ) {
+            $args['sort_order'] = 'asc';
+        }
+        
+        // Set default sort direction
+        if ( !$args['sort_order'] ) {
+            if ( $args['sort_by'] === 'date' ) {
+                $args['sort_order'] = 'desc';
+            } else {
+                $args['sort_order'] = 'asc';
             }
         }
-    }
-    
-    
-    if($success===FALSE){
-        echo "<span style='color:red;'>Error saving changes</span>";
-    }
-    else {
-        echo "<span style='color:#24890d;'>All changes saved</span>";
-    }
-    die();
-}
-   
-function ra_enqueue_fe_scripts(){
-    wp_enqueue_script('jquery-ui-datepicker');
-    wp_enqueue_script('jquery');
-    wp_enqueue_style('jquery-style', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/themes/smoothness/jquery-ui.css');
-}
-
-//other taxonomies are related to the specific plugin application so they are defined in the functions.php file of the website's theme
-function ra_multi_assessment_taxonomy(){
-    
-    $assessments_labels = array(
-        'name'=>'Risk assessments',
-        'singular_name'=>'Risk assessment',
-        'search_items'=>'Search risk assessment',
-        'all_items'=>'All risk assessments',
-        'edit_item'=>'Edit risk assessment',
-        'update_item'=>'Update risk assessment',
-        'add_new_item'=>'Add new risk assessment',
-        'new_item_name'=>'New risk assessment',
-        'menu_name'=>'Risk assessments'
-    );
-    
-    
-    register_taxonomy ('risk_assessment', 'risk-questions', array('hierarchical'=>true, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$assessments_labels));
-    
-    
-}
-
-function get_raforms_js(){
-    
-    $js = '<div id="riskassessment_save_2" style="margin-bottom:15px;"><input type=submit value="Save"></div>
-    <script type="text/javascript">
         
-        jQuery(document).ready(function() {
-            jQuery(".JQDate").datepicker({dateFormat : "dd-mm-yy"});
-        });
-    
-        jQuery("#risk_assessment_form").submit(ajaxSubmit);
+        $args['search_on_click'] = filter_var( $args['search_on_click'], FILTER_VALIDATE_BOOLEAN );
+        $args['wrap'] = filter_var( $args['wrap'], FILTER_VALIDATE_BOOLEAN );
+        $args['content_length'] = filter_var( $args['content_length'], FILTER_VALIDATE_INT );
+        $args['scroll_offset'] = filter_var( $args['scroll_offset'], FILTER_VALIDATE_INT );
+         
+        $date_format = 'Y/m/d';
+        $output = $table_head = $table_body = $body_row_fmt = '';
         
-       
-
-        function ajaxSubmit(){
-            jQuery("#riskassessment_save_1").html("<span style=\'color:blue;\'>Saving...</span>");
-            jQuery("#riskassessment_save_2").html("<span style=\'color:blue;\'>Saving...</span>");
-            var risk_assessment_form = jQuery(this).serialize();
+        // Start building the args needed for our posts query
+        $post_args = array(
+            'post_type' => 'ddoc-research-papers',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'suppress_filters' => false // Ensure WPML filters run on this query
+        );
+        
+        if ( $args['category'] ) {
+            $category = get_category_by_slug( $args['category'] );
             
-            jQuery.ajax({
-                type:"POST",
-                url: "/wp-admin/admin-ajax.php",
-                data: risk_assessment_form,
-                success:function(data){
-                    jQuery("#riskassessment_save_2").html(data);
-                    jQuery("#riskassessment_save_1").html(data);
-                }
-        });
-
-         jQuery("#risk_assessment_form").change(function(){
-            jQuery("#riskassessment_save_1").html("<input type=submit value=\'Save\'>");
-            jQuery("#riskassessment_save_2").html("<input type=submit value=\'Save\'>");
-            
-        });
-        
-        return false;
+            if ( $category ) {
+                $post_args['category_name'] = $category->slug;
+            }            
         }
-    
-    
-    </script>';
-    
-    return $js;
-    
-}
-
-
-
-//build the plugin user results page
-function risk_assessment_results_page() {
-	?>
-    <div class="wrap">
-    <h2><?php _e( 'Risk Assessment User Results', 'risk-plugin' ) ?></h2>
-    <p>Click on a Risk Assessment user to see their results and action plan</p>    
-    <?php
-    
-    $users = get_users( array( 'role__in' => array( 'risk_assessment_user' ) ) );
-    // Array of stdClass objects.
-    foreach ( $users as $user ) {
-        echo '<div><a href="?page=risk-results-detail&user_id='.$user->id.'">' . esc_html( $user->first_name ) .' '. esc_html( $user->last_name ).'</a></div>';
-    
-    }
-
-}
-
-//build the plugin user results page
-function risk_assessment_results_detail_page() {
-    $user = get_userdata( intval($_GET['user_id'])) ;
-    $taxlist = get_object_taxonomies( 'risk-questions','objects');
-    
-	?>
-    <div class="wrap">
-    <h2><?php _e( 'Risk Assessment User Results Detail for ', 'risk-plugin' ); echo (esc_html( $user->first_name ) .' '. esc_html( $user->last_name )); ?></h2>
-    <p>Indivdual user results and action plan</p>
-    
-    <?php
-    foreach ($taxlist as $taxobj){
-        $taxname = $taxobj->name;
         
-        echo '<div style="font-weight:bold;border-bottom:1px solid black;">'.__('User notes for ', 'risk-plugin').$taxobj->label.'</div><div>'.get_user_meta($user->ID, 'riskas_personal_notes_'.$taxname, true).'</div>';
-    }
-    
-    
+        // Get all published posts in the current language
+        $all_posts_curr_lang = get_posts( $post_args );
 
-}
+        if ( is_array( $all_posts_curr_lang ) && $all_posts_curr_lang ) {  // if we have posts
+            
+            
+            $column_defaults = array( 
+                 
+                'title' => array(
+                    'heading' => __('Title', 'ddoc-research-papers-plugin'),
+                    'priority' => 1,
+                    'width' => ''
+                ), 
+                'journal' => array(
+                    'heading' => __('Journal', 'ddoc-research-papers-plugin'),
+                    'priority' => 2,
+                    'width' => ''
+                ),
+                'year' => array(
+                    'heading' => __('Date', 'ddoc-research-papers-plugin'),
+                    'priority' => 2,
+                    'width' => ''
+                ), 
+                'author' => array(
+                    'heading' => __('Authors', 'ddoc-research-papers-plugin'),
+                    'priority' => 1,
+                    'width' => ''
+                ), 
+                'url' => array(
+                    'heading' => __('URL / Web Link', 'ddoc-research-papers-plugin'),
+                    'priority' => 3,
+                    'width' => ''
+                ), 
+            );   
+            
+            $columns = array_keys( $column_defaults );
+             
+            
+            // Build table header
+            $heading_fmt = '<th data-name="%1$s" data-priority="%2$u" data-width="%3$s">%4$s</th>';
+            $cell_fmt = '<td>%s</td>';
+                        
+            foreach( $columns as $column ) {
+                
+                if ( array_key_exists( $column, $column_defaults ) ) { // Double-check column name is valid
+                                     
+                    // Add heading to table
+                    $table_head .= sprintf( $heading_fmt, $column, $column_defaults[$column]['priority'], $column_defaults[$column]['width'], $column_defaults[$column]['heading'] );
+                    
+                    // Add placeholder to table body format string so that content for this column is included in table output
+                    $body_row_fmt .= sprintf($cell_fmt, '{' . $column . '}');
+                }
+            }
+            
+            $sort_column = $args['sort_by'];
+            $sort_index = array_search( $sort_column, $columns );
+            
+            if ( $sort_index === false && array_key_exists( $sort_column, $column_defaults ) ) {
+                // Sort column is not in list of displayed columns so we'll add it as a hidden column at end of table 
+                $table_head .= sprintf( '<th data-name="%1$s" data-visible="false">%2$s</th>', $sort_column, $column_defaults[$sort_column]['heading'] );
+                
+                // Make sure data for this column is included in table content
+                $body_row_fmt .= sprintf($cell_fmt, $sort_column); 
+                
+                // Set the sort column index to be this hidden column
+                $sort_index = count($columns);
+            }  
+            
+            $table_head = sprintf( '<thead><tr>%s</tr></thead>', $table_head );
+            // end table header
+                        
+            // Build table body
+            $body_row_fmt = '<tr>' . $body_row_fmt . '</tr>';
+            
+            // Loop through posts and add a row for each
+            foreach ( (array) $all_posts_curr_lang as $_post ) {
+                setup_postdata( $_post );
+                
+                // Format title
+                $title = sprintf( '<a href="%1$s">%2$s</a>', get_permalink($_post), get_the_title( $_post ) );
+                // Format author
+                $author = get_the_term_list( $_post->ID, 'author','', ', ','' );
+                // Format year
+                $year = get_the_term_list( $_post->ID, 'year','', ', ','' );
+                // Format journal
+                $journal = get_the_term_list( $_post->ID, 'journal','', ', ','' );
+                
+                $url = get_post_meta( $_post->ID, '_ddoc_research_paper_url', true );
+                
+                $post_data_trans = array( 
+                   
+                    '{title}' => $title, 
+                    '{url}' => sprintf( '<a href="%1$s" target=_blank>%2$s</a>', $url , $url ),
+                    '{year}' => $year, 
+                    '{author}' => $author, 
+                    '{journal}' => $journal
+                );
+                
+                $table_body .= strtr( $body_row_fmt, $post_data_trans );
+                
+            } // foreach post
+            
+            wp_reset_postdata();
+            
+            $table_body = sprintf( '<tbody>%s</tbody>', $table_body );
+            // end table body
+            
+            $paging_attr = 'false';
+            if ( ( $args['rows_per_page'] > 1 ) && ( $args['rows_per_page'] < count($all_posts_curr_lang) ) ) {
+                $paging_attr = 'true';
+            }
+            
+            $order_attr = ( $sort_index === false ) ? '' : sprintf( '[[%u, "%s"]]', $sort_index, $args['sort_order'] );            
+            $offset_attr = ( $args['scroll_offset'] === false ) ? 'false' : $args['scroll_offset'];            
+        
+            $table_class = 'posts-data-table';
+            if ( !$args['wrap'] ) {
+                $table_class .= ' nowrap';
+            }
+            
+            $output = sprintf( 
+                '<table '
+                    . 'id="posts-table-%1$u" '
+                    . 'class="%2$s" '
+                    . 'data-page-length="%3$u" '
+                    . 'data-paging="%4$s" '
+                    . 'data-order=\'%5$s\' '
+                    . 'data-click-filter="%6$s" '
+                    . 'data-scroll-offset="%7$s" '
+                    . 'cellspacing="0" width="100%%">'
+                    . '%8$s%9$s' .
+                '</table>',
+                $table_count,
+                esc_attr( $table_class ),
+                esc_attr( $args['rows_per_page'] ),
+                esc_attr( $paging_attr ),
+                esc_attr( $order_attr ),
+                ( $args['search_on_click'] ? 'true' : 'false' ),
+                esc_attr( $offset_attr ),
+                $table_head,
+                $table_body
+            );
+            
+            $ddoc_rp_table_count++;
+        } // if posts found
 
+        return $output;
+    } 
 ?>

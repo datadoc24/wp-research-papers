@@ -23,7 +23,13 @@ License: GPLv3
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+// Current version of this plugin
+define( 'RESEARCH_PAPERS_VERSION', '1.0.0' );
 
+include('includes/functions.php');
+
+global $table_count;
+$table_count = 1;
 // Call function when plugin is activated
 register_activation_hook( __FILE__, 'ddoc_research_papers_install' );
 
@@ -75,7 +81,7 @@ function ddoc_research_papers_init() {
 
 function ddoc_research_papers_taxonomies(){
     
-    $taxs = array('author'=>'Author','year'=>'Year','journal'=>'Journal');
+    $taxs = array('author'=>__( 'Author', 'ddoc-research-papers-plugin' ),'year'=>__( 'Year', 'ddoc-research-papers-plugin' ),'journal'=>__( 'Journal', 'ddoc-research-papers-plugin' ));
     
     foreach ($taxs as $name => $label){
         
@@ -91,36 +97,66 @@ function ddoc_research_papers_taxonomies(){
         'menu_name'=>$label.'s'
         );
         
-        register_taxonomy ($name, 'ddoc-research-papers', array('hierarchical'=>true, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
+        register_taxonomy ($name, 'ddoc-research-papers', array('hierarchical'=>false, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
         
     }
 }
 
 
-// Action hook to create the papers shortcode
-add_shortcode( 'researchpapers', 'ddoc_research_papers_shortcode' );
+//filters to manage what is shown in the table of risk assessment questions and user table
+add_filter('manage_ddoc-research-papers_posts_columns', 'ddoc_columns_research_papers_head');
+add_filter('manage_edit-ddoc-research-papers_sortable_columns', 'ddoc_sortable_category_columns');
+add_action('manage_ddoc-research-papers_posts_custom_column', 'ddoc_columns_research_papers_content', 10, 2);
 
-//create shortcode
-function ddoc_research_papers_shortcode( $atts, $content = null ) {
+function ddoc_columns_research_papers_head($defaults){
+    unset($defaults['date']);
+    unset($defaults['author']);
+    $defaults['author'] = __( 'Authors', 'ddoc-research-papers-plugin' );
+    $defaults['journal'] = __( 'Journal', 'ddoc-research-papers-plugin' );
+    $defaults['year'] = __( 'Year', 'ddoc-research-papers-plugin' );
+    $defaults['url'] = __( 'URL / Web Link', 'ddoc-research-papers-plugin' );
+    return $defaults;
+}
+
+function ddoc_sortable_category_columns($columns){
+    $columns['author'] = __( 'Authors', 'ddoc-research-papers-plugin' );
+    $columns['journal'] = __( 'Journal', 'ddoc-research-papers-plugin' );
+    $columns['year'] = __( 'Year', 'ddoc-research-papers-plugin' );
+    return $columns;
+}
+
+function ddoc_columns_research_papers_content($column_name, $post_ID) {
    
-    $output='<h1>Research Papers</h1>';
-    
-    $taxlist = get_object_taxonomies( 'ddoc-research-papers','objects');
-    
-    //drop-down for choosing ordering type
-    $output.="Sort research papers by <select name='sortby'>";
-    
-    foreach ($taxlist as $taxobj){
-        $taxlabel = $taxobj->label;
-        
-        $output.="<option>$taxlabel</option>";
+    if ($column_name == 'url') {
+        $rp_url = get_post_meta( $post_ID, '_ddoc_research_paper_url', true );
+        if ($rp_url) {
+            echo $rp_url;
+            return;
+        }
     }
     
-    $output.="</select></div>";
+    else{
+        $termlist = ddoc_get_terms($post_ID, $column_name);
+        
+        if ($termlist) {
+            echo $termlist;
+        }
+        return;   
+    }
+}
+
+#comma-separated list of tag names (all taxonomies)
+function ddoc_get_terms( $post_ID , $tn ){
     
+    $output = get_the_term_list( $post_ID, $tn,'', ', ','' );
     return $output;
 }
 
+// Action hook to create the papers shortcode
+add_shortcode( $ddoc_rp_shortcode, 'ddoc_research_papers_shortcode' );
+
+
+//meta box things
 add_action( 'add_meta_boxes', 'ddoc_research_papers_register_meta_box' );
 
 function ddoc_research_papers_register_meta_box() {
@@ -129,37 +165,61 @@ function ddoc_research_papers_register_meta_box() {
 	
 }
 
-
 function ddoc_research_papers__meta_box( $post ) {
 
-    wp_nonce_field( 'meta-box-save', 'ddoc-research-papers-plugin' );
+    wp_nonce_field( 'ddoc-rp-meta-box-save', 'ddoc-research-papers-plugin' );
     
     $rp_url = get_post_meta( $post->ID, '_ddoc_research_paper_url', true );
+    $rp_desc = get_post_meta( $post->ID, '_ddoc_research_paper_desc', true );
   
-    echo '<div>' .__('Research Paper Web Link / URL', 'ddoc-research-papers-plugin').': <input type="text" name="ddoc_research_paper_url" value="'.esc_attr( $rp_url ).'" size="100"></div>';
+    echo '<div><strong>' .__('Research Paper Web Link / URL', 'ddoc-research-papers-plugin').':</strong> <input type="text" name="ddoc_research_paper_url" value="'.esc_attr( $rp_url ).'" size="100"><br><strong>'.__('Research Description / Summary', 'ddoc-research-papers-plugin').'</strong><br /><textarea rows=10 style="width:100%" name="ddoc_research_paper_desc">'.esc_attr( $rp_desc ).'</textarea></div>';
 	
 }
 
-
 add_action( 'save_post','ddoc_research_paper_save_meta_box' );
-
 
 function ddoc_research_paper_save_meta_box( $post_id ) {
 
 	//verify the post type is for Risk Assessment Question and metadata has been posted
-	if ( get_post_type( $post_id ) == 'ddoc-research-papers' && isset( $_POST['ddoc_research_paper_url'] ) ) {
+	if (( get_post_type( $post_id ) == 'ddoc-research-papers'  ) && isset( $_POST['ddoc_research_paper_url'] )) {
 		
 		//if autosave skip saving data
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) 
 			return;
 
 		//check nonce for security
-		check_admin_referer( 'meta-box-save', 'ddoc-research-papers-plugin' );
+		check_admin_referer( 'ddoc-rp-meta-box-save', 'ddoc-research-papers-plugin' );
 
 		// save the meta box data as post metadata
 		update_post_meta( $post_id, '_ddoc_research_paper_url', sanitize_text_field( $_POST['ddoc_research_paper_url'] ) );
+        update_post_meta( $post_id, '_ddoc_research_paper_desc', sanitize_text_field( $_POST['ddoc_research_paper_desc'] ) );
 		
 	}
 	
-}    
+}
+
+
+
+
+
+
+
+
+
+// Register styles and scripts
+add_action( 'wp_enqueue_scripts', 'ddoc_register_styles' );
+add_action( 'wp_enqueue_scripts', 'ddoc_register_scripts');
+
+function ddoc_register_styles() {
+        wp_enqueue_style( 'jquery-data-tables', plugins_url( 'assets/css/datatables.min.css', __FILE__ ), array(), '1.10.12' );
+		wp_enqueue_style( 'posts-data-table', plugins_url( 'assets/css/posts-data-table.min.css', __FILE__ ), array( 'jquery-data-tables' ));        
+                
+}
+    
+function ddoc_register_scripts() {
+        wp_enqueue_script( 'jquery-data-tables', plugins_url( 'assets/js/datatables.min.js', __FILE__ ), array( 'jquery' ), '1.10.12', true );
+        wp_enqueue_script( 'posts-data-table', plugins_url( 'assets/js/posts-data-table.min.js', __FILE__ ), array( 'jquery-data-tables' ));
+}
+
+    
 ?>
