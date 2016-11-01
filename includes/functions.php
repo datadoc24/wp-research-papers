@@ -159,11 +159,11 @@ function ddoc_research_papers_display( $args ) {
                 // Format title
                 $title = sprintf( '<a href="%1$s">%2$s</a>', get_permalink($_post), get_the_title( $_post ) );
                 // Format author
-                $author = get_the_term_list( $_post->ID, 'author','', ', ','' );
+                $author = strip_tags(get_the_term_list( $_post->ID, 'author','', ', ','' ));
                 // Format year
-                $year = get_the_term_list( $_post->ID, 'year','', ', ','' );
+                $year = strip_tags(get_the_term_list( $_post->ID, 'year','', ', ','' ));
                 // Format journal
-                $journal = get_the_term_list( $_post->ID, 'journal','', ', ','' );
+                $journal = strip_tags(get_the_term_list( $_post->ID, 'journal','', ', ','' ));
                 
                 $url = get_post_meta( $_post->ID, '_ddoc_research_paper_url', true );
                 
