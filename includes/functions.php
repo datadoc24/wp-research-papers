@@ -37,7 +37,7 @@ function ddoc_research_papers_display( $args ) {
             $args['rows_per_page'] = false;
         }
         
-        if ( !in_array( $args['sort_by'], array('id', 'title', 'category', 'date', 'author', 'content') ) ) {
+        if ( !in_array( $args['sort_by'], array('id', 'title', 'category', 'date', 'authors', 'content') ) ) {
             $args['sort_by'] = 'title';
         }
         
@@ -96,12 +96,12 @@ function ddoc_research_papers_display( $args ) {
                     'priority' => 2,
                     'width' => ''
                 ),
-                'year' => array(
+                'years' => array(
                     'heading' => __('Date', 'ddoc-research-papers-plugin'),
                     'priority' => 2,
                     'width' => ''
                 ), 
-                'author' => array(
+                'authors' => array(
                     'heading' => __('Authors', 'ddoc-research-papers-plugin'),
                     'priority' => 1,
                     'width' => ''
@@ -158,10 +158,10 @@ function ddoc_research_papers_display( $args ) {
                 
                 // Format title
                 $title = sprintf( '<a href="%1$s">%2$s</a>', get_permalink($_post), get_the_title( $_post ) );
-                // Format author
-                $author = strip_tags(get_the_term_list( $_post->ID, 'author','', ', ','' ));
-                // Format year
-                $year = strip_tags(get_the_term_list( $_post->ID, 'year','', ', ','' ));
+                // Format authors
+                $authors = strip_tags(get_the_term_list( $_post->ID, 'authors','', ', ','' ));
+                // Format years
+                $years = strip_tags(get_the_term_list( $_post->ID, 'years','', ', ','' ));
                 // Format journal
                 $journal = strip_tags(get_the_term_list( $_post->ID, 'journal','', ', ','' ));
                 
@@ -171,8 +171,8 @@ function ddoc_research_papers_display( $args ) {
                    
                     '{title}' => $title, 
                     '{url}' => sprintf( '<a href="%1$s" target=_blank>%2$s</a>', $url , $url ),
-                    '{year}' => $year, 
-                    '{author}' => $author, 
+                    '{years}' => $years, 
+                    '{authors}' => $authors, 
                     '{journal}' => $journal
                 );
                 

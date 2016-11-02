@@ -62,8 +62,9 @@ function ddoc_research_papers_init() {
 	
 	  $args = array(
 		'labels' => $labels,
-		'public' => false,
-		'publicly_queryable' => false,
+        'description' => 'Post type to catalogue academic research papers',
+		'public' => true,
+		'publicly_queryable' => true,
 		'show_ui' => true, 
 		'show_in_menu' => true, 
 		'query_var' => true,
@@ -81,23 +82,25 @@ function ddoc_research_papers_init() {
 
 function ddoc_research_papers_taxonomies(){
     
-    $taxs = array('author'=>__( 'Author', 'ddoc-research-papers-plugin' ),'year'=>__( 'Year', 'ddoc-research-papers-plugin' ),'journal'=>__( 'Journal', 'ddoc-research-papers-plugin' ));
+    $taxs = array('authors'=>__( 'Authors', 'ddoc-research-papers-plugin' ),'years'=>__( 'Year', 'ddoc-research-papers-plugin' ),'journal'=>__( 'Journal', 'ddoc-research-papers-plugin' ));
     
     foreach ($taxs as $name => $label){
         
          $labels = array(
-        'name'=>$label.'s',
+        'name'=>$label,
         'singular_name'=>$label,
         'search_items'=>'Search '.$name,
-        'all_items'=>'All '.$name.'s',
+        'all_items'=>'All '.$name,
         'edit_item'=>'Edit '.$name,
         'update_item'=>'Update '.$name,
         'add_new_item'=>'Add new '.$name,
         'new_item_name'=>'New '.$name,
-        'menu_name'=>$label.'s'
+        'menu_name'=>$label,
+        'not_found'=>__( 'No '.$name.' found', 'ddoc-research-papers-plugin' )
         );
         
-        register_taxonomy ($name, 'ddoc-research-papers', array('hierarchical'=>false, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
+        register_taxonomy ($name, 'ddoc-research-papers', array('hierarchical'=>true, 'query_var'=>true, 'rewrite'=>true, 'labels'=>$labels));
+        register_taxonomy_for_object_type( $name, 'ddoc-research-papers' );
         
     }
 }
@@ -110,18 +113,17 @@ add_action('manage_ddoc-research-papers_posts_custom_column', 'ddoc_columns_rese
 
 function ddoc_columns_research_papers_head($defaults){
     unset($defaults['date']);
-    unset($defaults['author']);
-    $defaults['author'] = __( 'Authors', 'ddoc-research-papers-plugin' );
+    $defaults['authors'] = __( 'Authors', 'ddoc-research-papers-plugin' );
     $defaults['journal'] = __( 'Journal', 'ddoc-research-papers-plugin' );
-    $defaults['year'] = __( 'Year', 'ddoc-research-papers-plugin' );
+    $defaults['years'] = __( 'Year', 'ddoc-research-papers-plugin' );
     $defaults['url'] = __( 'URL / Web Link', 'ddoc-research-papers-plugin' );
     return $defaults;
 }
 
 function ddoc_sortable_category_columns($columns){
-    $columns['author'] = __( 'Authors', 'ddoc-research-papers-plugin' );
+    $columns['authors'] = __( 'Authors', 'ddoc-research-papers-plugin' );
     $columns['journal'] = __( 'Journal', 'ddoc-research-papers-plugin' );
-    $columns['year'] = __( 'Year', 'ddoc-research-papers-plugin' );
+    $columns['years'] = __( 'Year', 'ddoc-research-papers-plugin' );
     return $columns;
 }
 
@@ -149,7 +151,7 @@ function ddoc_columns_research_papers_content($column_name, $post_ID) {
 function ddoc_get_terms( $post_ID , $tn ){
     
     $output = get_the_term_list( $post_ID, $tn,'', ', ','' );
-    return $output;
+    return strip_tags($output);
 }
 
 // Action hook to create the papers shortcode
