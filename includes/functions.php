@@ -7,7 +7,7 @@ $ddoc_rp_shortcode = 'researchpapers';
 
 global $ddoc_rp_shortcode_defaults;
 $ddoc_rp_shortcode_defaults = array(
-        'rows_per_page' => 20,
+        'rows_per_page' => 2,
         'sort_by' => '',
         'sort_order' => '',
         'category' => '',
@@ -170,7 +170,7 @@ function ddoc_research_papers_display( $args ) {
                 $post_data_trans = array( 
                    
                     '{title}' => $title, 
-                    '{url}' => sprintf( '<a href="%1$s" target=_blank>%2$s</a>', $url , $url ),
+                    '{url}' => sprintf( '<a href="%1$s" class="fancybox-pdf">%2$s</a>', $url , 'Link to paper' ),
                     '{years}' => $years, 
                     '{authors}' => $authors, 
                     '{journal}' => $journal
